@@ -76,36 +76,36 @@ for folder in mask_folders:
   name = [folder[1]] * len(array)
   list(map(add_masks, name, array))
 
-train_datagen = ImageDataGenerator(
-    rescale = 1./255,
-    shear_range = 0.2,
-    zoom_range = 0.2,
-    horizontal_flip = True
-)
-val_datagen = ImageDataGenerator(
-    rescale = 1./255
-)
+# train_datagen = ImageDataGenerator(
+#     rescale = 1./255,
+#     shear_range = 0.2,
+#     zoom_range = 0.2,
+#     horizontal_flip = True
+# )
+# val_datagen = ImageDataGenerator(
+#     rescale = 1./255
+# )
 
-train_image_generator = train_datagen.flow_from_directory(
-    'dataset/train_frames',
-    batch_size = 4
-)
-train_mask_generator = train_datagen.flow_from_directory(
-    'dataset/train_masks',
-    batch_size = 4
-)
+# train_image_generator = train_datagen.flow_from_directory(
+#     'dataset/train_frames',
+#     batch_size = 4
+# )
+# train_mask_generator = train_datagen.flow_from_directory(
+#     'dataset/train_masks',
+#     batch_size = 4
+# )
 
-val_image_generator = val_datagen.flow_from_directory(
-    'dataset/val_frames',
-    batch_size = 4
-)
-val_mask_generator = val_datagen.flow_from_directory(
-    'dataset/val_masks',
-    batch_size = 4
-)
+# val_image_generator = val_datagen.flow_from_directory(
+#     'dataset/val_frames',
+#     batch_size = 4
+# )
+# val_mask_generator = val_datagen.flow_from_directory(
+#     'dataset/val_masks',
+#     batch_size = 4
+# )
 
-train_generator = zip(train_image_generator, train_mask_generator)
-val_generator = zip(val_image_generator, val_mask_generator)
+# train_generator = zip(train_image_generator, train_mask_generator)
+# val_generator = zip(val_image_generator, val_mask_generator)
 
 # in case we want to use custom data generator
 def custom_data_generator(img_folder, mask_folder, batch_size):
@@ -116,11 +116,21 @@ def custom_data_generator(img_folder, mask_folder, batch_size):
         img = np.zeros((batch_size, 512, 512, 3)).astype('float')
         mask = np.zeros((batch_size, 512, 512, 3)).astype('float')
         for i in range(count, count + batch_size):
-            train_img = cv2.imread(os.path.join(img_folder, n[i]))/255.0
+            img_path = os.path.join(img_folder, n[i])
+            use_img_path = img_path
+            if img_path[-4:] != '.jpg':
+                jpg_pos = img_path.find('.jpg')
+                use_img_path = img_path[:jpg_pos] + '.jpg'
+            train_img = cv2.imread(use_img_path)/255.0
             train_img = cv2.resize(train_img, (512, 512))
             img[count - i] = train_img
 
-            train_mask = cv2.imread(os.path.join(mask_folder, n[i]))/255.0
+            mask_path = os.path.join(mask_folder, n[i])
+            use_mask_path = mask_path
+            if mask_path[-4:] != '.png':
+                png_pos = mask_path.find('.jpg')
+                use_mask_path = mask_path[:png_pos] + '.png'
+            train_mask = cv2.imread(use_mask_path)/255.0
             train_mask = cv2.resize(train_mask, (512, 512))
             mask[count - i] = train_mask
 
@@ -160,12 +170,15 @@ def jaccard_distance_loss(y_true, y_pred, smooth=100):
     jac = (intersection + smooth) / (sum_ - intersection + smooth)
     return (1 - jac) * smooth
 
-img_folder = os.path.join(DATA_PATH, 'train_frames')
-mask_folder = os.path.join(DATA_PATH, 'mask_frames') 
-custom_data_generator = custom_data_generator(img_folder, mask_folder, BATCH_SIZE)
+train_img_folder = os.path.join(DATA_PATH, 'train_frames')
+train_mask_folder = os.path.join(DATA_PATH, 'train_masks') 
+train_data_generator = custom_data_generator(train_img_folder, train_mask_folder, BATCH_SIZE)
 
+val_img_folder = os.path.join(DATA_PATH, 'val_frames')
+val_mask_folder = os.path.join(DATA_PATH, 'val_masks') 
+val_data_generator = custom_data_generator(val_img_folder, val_mask_folder, BATCH_SIZE)
 
-FCN_model = FCN_VGG16(input_shape=(500, 500, 3), classes=3,  
+FCN_model = FCN_VGG16(input_shape=(512, 512, 3), classes=3,  
                       weights='imagenet', trainable_encoder=True)
 optimizer = Adam(lr = 1e-5, beta_1 = 0.9, beta_2 = 0.999, epsilon=1e-08)
 
@@ -183,9 +196,9 @@ earlystopping = EarlyStopping(monitor = 'val_loss', verbose = 1,
 
 callbacks_list = [checkpoint, csv_logger, earlystopping]
 
-results = FCN_model.fit_generator(custom_data_generator, epochs=NO_OF_EPOCHS, 
+results = FCN_model.fit_generator(train_data_generator, epochs=NO_OF_EPOCHS, 
                           steps_per_epoch = (NO_OF_TRAINING_IMAGES//BATCH_SIZE),
-                          validation_data=val_generator, 
+                          validation_data=val_data_generator, 
                           validation_steps=(NO_OF_VAL_IMAGES//BATCH_SIZE), 
                           callbacks=callbacks_list)
 FCN_model.save('Model.h5')
