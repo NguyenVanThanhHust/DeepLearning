@@ -1,0 +1,2 @@
+model_checkpoint_path: "Chapter 11 DNN with SELU and Batch Normaliztion.ckpt"
+all_model_checkpoint_paths: "Chapter 11 DNN with SELU and Batch Normaliztion.ckpt"
