@@ -25,18 +25,19 @@ from net_archi import SiameseNetwork
 from torch import optim
 
 # Triplet Loss
-class TripletLoss(torch.nn.Module):
-  def __init__(self, alpha):
-    super(TripletLoss, self).__init__()
-    self.alpha = alpha
-  def forward(self, anchor, positive, negative):
-    p_dist = F.pairwise_distance(anchor, positive, dim = -1)
-    n_dist = F.pairwise_distance(anchor, negative, dim = -1)
-    return torch.sum(torch.max(p_dist - n_dist + self.alpha, 0), dim = 0)
+class TripletLoss(nn.Module):
+    def __init__(self, margin):
+        super(TripletLoss, self).__init__()
+        self.margin = margin
+    def forward(self, anchor, positive, negative, size_average = True):
+        distance_positive = (anchor - positive).pow(2).sum(1)
+        distance_negative = (anchor - negative).pow(2).sum(1)
+        losses = F.relu(distance_positive - distance_negative + self.margin)
+        return losses.mean() if size_average else losses.sum()
 
 folder_dataset = dset.ImageFolder(root=Config.training_dir)
 siamese_dataset = SiameseNetworkDataset(imageFolderDataset=folder_dataset,
-                                        transform=transforms.Compose([transforms.Resize((100,100)),
+                                        transform=transforms.Compose([transforms.Resize((512,512)),
                                                                       transforms.ToTensor()
                                                                       ])
                                        ,should_invert=False)
@@ -46,12 +47,16 @@ train_dataloader = DataLoader(siamese_dataset,
                         batch_size=Config.train_batch_size)
 
 net = SiameseNetwork().cuda()
-criterion = TripletLoss(alpha = 0.2)
+criterion = TripletLoss(margin = 0.2)
 optimizer = optim.Adam(net.parameters(),lr = 0.0005 )
 
 counter = []
 loss_history = [] 
 iteration_number= 0
+
+checkpoint = {'model': SiameseNetwork(),
+          'state_dict': net.state_dict(),
+          'optimizer' : optimizer.state_dict()}
 
 for epoch in range(0,Config.train_number_epochs):
     for i, data in enumerate(train_dataloader,0):
@@ -67,4 +72,5 @@ for epoch in range(0,Config.train_number_epochs):
             iteration_number +=10
             counter.append(iteration_number)
             loss_history.append(loss_triplet.item())
+            torch.save(checkpoint, 'checkpoint.pth')
 
