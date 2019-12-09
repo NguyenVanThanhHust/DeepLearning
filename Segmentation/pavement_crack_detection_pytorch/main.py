@@ -10,11 +10,11 @@ from torch.utils.data import DataLoader
 from torchvision.transforms import Compose, CenterCrop, Normalize
 from torchvision.transforms import ToTensor, ToPILImage
 
-from piwise.dataset import VOC12
-from piwise.network import FphbNet
-from piwise.criterion import CrossEntropyLoss2d
-from piwise.transform import Relabel, ToLabel, Colorize
-# from piwise.visualize import Dashboard
+from fphn.dataset import VOC12
+from fphn.network import FphbNet
+from fphn.criterion import CrossEntropyLoss2d
+from fphn.transform import Relabel, ToLabel, Colorize
+# from fphn.visualize import Dashboard
 
 NUM_CHANNELS = 3
 NUM_CLASSES = 22
