@@ -12,9 +12,9 @@ class BasicConvLayer(nn.Module):
         self.in_channels = in_channels
         self.out_channels = out_channels
         self.forward_cnn = nn.Sequential(
-            nn.Conv2D(self.in_channels, self.out_channels, kernel_size = (3,3), stride = 1, padding = 1),
-            nn.MaxPool2d(),
-            nn.BatchNorm2d(),
+            nn.Conv2d(self.in_channels, self.out_channels, kernel_size = (3,3), stride = 1, padding = 1),
+            nn.MaxPool2d(kernel_size = (2,2)),
+            nn.BatchNorm2d(num_features = self.out_channels),
             nn.ReLU(inplace = True)
         )
     def forward(self, x):
@@ -66,7 +66,7 @@ class ConcatLayer(nn.Module):
         self.up_input_layer = up_input_layer
         self.upsample_width, self.upsample_height = up_input_layer.shape[2], up_input_layer.shape[3]
         self.size = (2 * self.upsample_width, 2 * self.upsample_height)
-        self.reduce_dim_to_512 = nn.Conv2D(self.input_layer[1]+ self.up_input_layer[1], 512, kernel_size = (1,1))
+        self.reduce_dim_to_512 = nn.Conv2d(self.input_layer[1]+ self.up_input_layer[1], 512, kernel_size = (1,1))
         assert self.size[0]==self.input_layer[2] and self.size[1]==self.input_layer[3] ,'can not upsampling and concantenate, check dimension'
     def forward(self, input_layer, up_input_layer):
         upsample_map = Interpolate(self.size, mode='cubic')(up_input_layer)
@@ -76,7 +76,7 @@ class ConcatLayer(nn.Module):
 class SideNetwork(nn.Module):
     def __init__(self):
         super().__init__()
-        self.conv11 = nn.Conv2D(512, 512, kernel_size=(1,1), stride=1, padding=1)
+        self.conv11 = nn.Conv2d(512, 512, kernel_size=(1,1), stride=1, padding=1)
         self.deconv = nn.ConvTranspose2d(512, 512, kernel_size=(3,3), stride=1, padding=1)
     def forward(self, x):
         x = self.conv11(x)
@@ -98,6 +98,12 @@ class FphbNet(nn.Module):
         self.bottom_up_layer_3 = Layer3Conv(128, 256)
         self.bottom_up_layer_4 = Layer3Conv(256, 512)
         self.bottom_up_layer_5 = Layer3Conv(512, 512)
+        self.final_layer =  nn.Sequential(
+            nn.Conv2d(512, 3, kernel_size = (1, 1), stride = 1, padding = 1),
+            nn.MaxPool2d(kernel_size = (2,2)),
+            nn.BatchNorm2d(num_features = out_channels),
+            nn.ReLU(inplace = True)
+        )
 
     def forward(self, x):
         feature_map_layer_1 = self.bottom_up_layer_1(x)
@@ -117,5 +123,6 @@ class FphbNet(nn.Module):
         side_network_2 = SideNetwork()(feature_pyramid_2)
         side_network_1 = SideNetwork()(feature_pyramid_1)
 
-
-        return 
+        final_concatenate = torch.cat([side_network_5, side_network_4, side_network_3, side_network_2, side_network_1], 1)
+        final_outputs = final_layer(final_concatenate)
+        return [side_network_1, side_network_2, side_network_3, side_network_4, side_network_5, final_outputs]

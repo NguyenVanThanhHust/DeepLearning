@@ -80,12 +80,6 @@ def train(args, model):
                 image[0] = image[0] * .229 + .485
                 image[1] = image[1] * .224 + .456
                 image[2] = image[2] * .225 + .406
-                # board.image(image,
-                #     f'input (epoch: {epoch}, step: {step})')
-                # board.image(color_transform(outputs[0].cpu().max(0)[1].data),
-                #     f'output (epoch: {epoch}, step: {step})')
-                # board.image(color_transform(targets[0].cpu().data),
-                #     f'target (epoch: {epoch}, step: {step})')
             if args.steps_loss > 0 and step % args.steps_loss == 0:
                 average = sum(epoch_loss) / len(epoch_loss)
                 print(f'loss: {average} (epoch: {epoch}, step: {step})')
@@ -110,7 +104,7 @@ def main(args):
     
     assert Net is not None, f'model {args.model} not available'
 
-    model = Net(NUM_CLASSES)
+    model = Net()
 
     if args.cuda:
         model = model.cuda()
@@ -129,7 +123,7 @@ def main(args):
 if __name__ == '__main__':
     parser = ArgumentParser()
     parser.add_argument('--cuda', action='store_true')
-    parser.add_argument('--model', required=True)
+    parser.add_argument('--model', default = 'fphb')
     parser.add_argument('--state')
 
     subparsers = parser.add_subparsers(dest='mode')
