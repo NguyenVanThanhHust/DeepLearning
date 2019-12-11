@@ -22,12 +22,12 @@ NUM_CLASSES = 22
 color_transform = Colorize()
 image_transform = ToPILImage()
 input_transform = Compose([
-    CenterCrop(256),
+    # CenterCrop(256),
     ToTensor(),
     Normalize([.485, .456, .406], [.229, .224, .225]),
 ])
 target_transform = Compose([
-    CenterCrop(256),
+    # CenterCrop(256),
     ToLabel(),
     Relabel(255, NUM_CLASSES - 1),
 ])
@@ -67,8 +67,8 @@ def train(args, model):
 
             inputs = Variable(images)
             targets = Variable(labels)
+            print("input shape: ", inputs.size())
             outputs = model(inputs)
-
             optimizer.zero_grad()
             loss = criterion(outputs, targets[:, 0])
             loss.backward()
@@ -114,7 +114,7 @@ def main(args):
         except AssertionError:
             model.load_state_dict(torch.load(args.state,
                 map_location=lambda storage, loc: storage))
-
+    verbose = 0
     if args.mode == 'eval':
         evaluate(args, model)
     if args.mode == 'train':
