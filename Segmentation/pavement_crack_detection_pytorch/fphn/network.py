@@ -61,17 +61,15 @@ class Layer3Conv(nn.Module):
         return x
 
 class ConcatLayer(nn.Module):
-    def __init__(self, input_layer, up_input_layer):
+    def __init__(self):
         super().__init__()
-        self.input_layer = input_layer
-        self.up_input_layer = up_input_layer
-        self.upsample_width, self.upsample_height = up_input_layer.shape[2], up_input_layer.shape[3]
-        self.size = (2 * self.upsample_width, 2 * self.upsample_height)
-        self.reduce_dim_to_512 = nn.Conv2d(self.input_layer[1]+ self.up_input_layer[1], 512, kernel_size = (1,1))
-        assert self.size[0]==self.input_layer[2] and self.size[1]==self.input_layer[3] ,'can not upsampling and concantenate, check dimension'
+        self.upsample_map = nn.Upsample(scale_factor=2, mode='bicubic')
+        self.padding = nn.ReflectionPad2d((0, 1, 0, 1))
     def forward(self, input_layer, up_input_layer):
-        upsample_map = Interpolate(self.size, mode='cubic')(up_input_layer)
-        x = torch.cat([self.input_layer, upsample_map], 1)
+        upsample_map = nn.Upsample((input_layer.size[2], input_layer.size[3]), mode='bicubic')(up_input_layer)
+        input_padding = self.padding(upsample_map)
+        x = torch.cat([input_layer, input_padding], 1)
+        print("x shape: ", x.size())
         return x
 
 class SideNetwork(nn.Module):
@@ -96,10 +94,11 @@ class FphbNet(nn.Module):
         self.final_layer =  nn.Sequential(
             nn.Conv2d(512, 3, kernel_size = (1, 1), stride = 1, padding = 1),
             nn.MaxPool2d(kernel_size = (2,2)),
-            # nn.BatchNorm2d(num_features = out_channels),
             nn.InstanceNorm2d(num_features = out_channels),
             nn.ReLU(inplace = True)
         )
+        self.size_network = SideNetwork()
+        self.concat_layer = ConcatLayer()
 
     def forward(self, x):
         feature_map_layer_1 = self.bottom_up_layer_1(x)
@@ -108,16 +107,16 @@ class FphbNet(nn.Module):
         feature_map_layer_4 = self.bottom_up_layer_4(feature_map_layer_3)
         feature_map_layer_5 = self.bottom_up_layer_5(feature_map_layer_4)
 
-        feature_pyramid_4 = ConcatLayer(feature_map_layer_4, feature_map_layer_5)
-        feature_pyramid_3 = ConcatLayer(feature_map_layer_3, feature_pyramid_4)
-        feature_pyramid_2 = ConcatLayer(feature_map_layer_2, feature_pyramid_3)
-        feature_pyramid_1 = ConcatLayer(feature_map_layer_1, feature_pyramid_2)
+        feature_pyramid_4 = self.concat_layer(feature_map_layer_4, feature_map_layer_5)
+        feature_pyramid_3 = self.concat_layer(feature_map_layer_3, feature_pyramid_4)
+        feature_pyramid_2 = self.concat_layer(feature_map_layer_2, feature_pyramid_3)
+        feature_pyramid_1 = self.concat_layer(feature_map_layer_1, feature_pyramid_2)
 
-        side_network_5 = SideNetwork()(feature_map_layer_5)
-        side_network_4 = SideNetwork()(feature_pyramid_4)
-        side_network_3 = SideNetwork()(feature_pyramid_3)
-        side_network_2 = SideNetwork()(feature_pyramid_2)
-        side_network_1 = SideNetwork()(feature_pyramid_1)
+        side_network_5 = self.size_network(feature_map_layer_5)
+        side_network_4 = self.size_network(feature_pyramid_4)
+        side_network_3 = self.size_network(feature_pyramid_3)
+        side_network_2 = self.size_network(feature_pyramid_2)
+        side_network_1 = self.size_network(feature_pyramid_1)
 
         final_concatenate = torch.cat([side_network_5, side_network_4, side_network_3, side_network_2, side_network_1], 1)
         final_outputs = final_layer(final_concatenate)

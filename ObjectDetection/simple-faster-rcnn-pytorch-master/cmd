@@ -1,0 +1,3 @@
+python misc/convert_caffe_pretrain.py
+
+python train.py train --env='fasterrcnn-caffe' --plot-every=100 --caffe-pretrain
