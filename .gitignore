@@ -1,3 +1,7 @@
+#model and dataset of object detection
+ObjectDetection/NWPU VHR-10 dataset/
+ObjectDetection/simple-faster-rcnn-pytorch-master/checkpoints/
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
