@@ -22,12 +22,12 @@ NUM_CLASSES = 22
 color_transform = Colorize()
 image_transform = ToPILImage()
 input_transform = Compose([
-    # CenterCrop(256),
+    CenterCrop((256, 256)), 
     ToTensor(),
     Normalize([.485, .456, .406], [.229, .224, .225]),
 ])
 target_transform = Compose([
-    # CenterCrop(256),
+    CenterCrop((256, 256)), 
     ToLabel(),
     Relabel(255, NUM_CLASSES - 1),
 ])
@@ -38,7 +38,7 @@ def train(args, model):
     weight = torch.ones(NUM_CLASSES)
     weight[0] = 0
 
-    loader = DataLoader(VOC12(args.datadir, input_transform, target_transform),
+    loader = DataLoader(VOC12(args.datadir, input_transform = input_transform, target_transform = target_transform),
         num_workers=args.num_workers, batch_size=args.batch_size, shuffle=True)
 
     if args.cuda:
@@ -54,9 +54,6 @@ def train(args, model):
     if args.model.startswith('Seg'):
         optimizer = SGD(model.parameters(), 1e-3, .9)
 
-    # if args.steps_plot > 0:
-    #     board = Dashboard(args.port)
-
     for epoch in range(1, args.num_epochs+1):
         epoch_loss = []
 
@@ -67,7 +64,6 @@ def train(args, model):
 
             inputs = Variable(images)
             targets = Variable(labels)
-            print("input shape: ", inputs.size())
             outputs = model(inputs)
             optimizer.zero_grad()
             loss = criterion(outputs, targets[:, 0])
