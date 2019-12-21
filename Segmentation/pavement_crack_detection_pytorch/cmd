@@ -2,3 +2,4 @@ python main.py --cuda --model fphb train --datadir ./../Samples/dataset/ \
     --num-epochs 30 --num-workers 4 --batch-size 4 \
     --steps-plot 50 --steps-save 100
 
+python main.py --cuda --model fphb train --datadir ./../Samples/dataset/ --num-epochs 30 --num-workers 4 --batch-size 1 --steps-plot 50 --steps-save 100

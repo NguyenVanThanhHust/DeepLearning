@@ -55,7 +55,7 @@ class ConcatLayer(nn.Module):
         super().__init__()
         self.upsample_map = nn.Upsample(scale_factor=2, mode='bicubic')
         self.padding = nn.ReflectionPad2d((0, 1, 0, 1))
-        self.reduce_depth = nn.Conv2d(768, 128, kernel_size = (1,1), stride = 1, padding = 1)
+        self.reduce_depth = nn.Conv2d(96, 16, kernel_size = (1,1), stride = 1, padding = 1)
     def forward(self, input_layer, up_input_layer):
         size_input = list(input_layer.size())
         upsample_map = self.upsample_map(up_input_layer)
@@ -63,12 +63,12 @@ class ConcatLayer(nn.Module):
         output =  self.reduce_depth(concat)
         return output
             
-class ConcatLayer256(nn.Module):
+class ConcatLayer32(nn.Module):
     def __init__(self):
         super().__init__()
         self.upsample_map = nn.Upsample(scale_factor=2, mode='bicubic')
         self.padding = nn.ReflectionPad2d((0, 1, 0, 1))
-        self.reduce_depth = nn.Conv2d(256, 128, kernel_size = (1,1), stride = 1, padding = 0)
+        self.reduce_depth = nn.Conv2d(32, 16, kernel_size = (1,1), stride = 1, padding = 0)
     def forward(self, input_layer, up_input_layer):
         size_input = list(input_layer.size())
         size_up_input = list(up_input_layer.size())
@@ -82,12 +82,12 @@ class ConcatLayer256(nn.Module):
             output =  self.reduce_depth(concat)
             return output
 
-class ConcatLayer192(nn.Module):
+class ConcatLayer24(nn.Module):
     def __init__(self):
         super().__init__()
         self.upsample_map = nn.Upsample(scale_factor=2, mode='bicubic')
         self.padding = nn.ReflectionPad2d((0, 1, 0, 1))
-        self.reduce_depth = nn.Conv2d(192, 128, kernel_size = (1,1), stride = 1, padding = 0)
+        self.reduce_depth = nn.Conv2d(24, 16, kernel_size = (1,1), stride = 1, padding = 0)
     def forward(self, input_layer, up_input_layer):
         size_input = list(input_layer.size())
         size_up_input = list(up_input_layer.size())
@@ -106,7 +106,7 @@ class ConcatLayer23(nn.Module):
         super().__init__()
         self.upsample_map = nn.Upsample(scale_factor=2, mode='bicubic')
         self.padding = nn.ReflectionPad2d((0, 1, 0, 1))
-        self.reduce_depth = nn.Conv2d(256, 128, kernel_size = (1,1), stride = 1, padding = 0)
+        self.reduce_depth = nn.Conv2d(32, 16, kernel_size = (1,1), stride = 1, padding = 0)
     def forward(self, input_layer, up_input_layer):
         size_input = list(input_layer.size())
         size_up_input = list(up_input_layer.size())
@@ -118,33 +118,33 @@ class ConcatLayer23(nn.Module):
 class SideNetwork(nn.Module):
     def __init__(self):
         super().__init__()
-        self.conv11 = nn.Conv2d(128, 128, kernel_size=(1,1), stride=1, padding=1)
-        self.deconv = nn.ConvTranspose2d(128, 128, kernel_size=(3,3), stride=1, padding=1)
+        self.conv11 = nn.Conv2d(16, 16, kernel_size=(1,1), stride=1, padding=1)
+        self.deconv = nn.ConvTranspose2d(16, 16, kernel_size=(3,3), stride=1, padding=1)
     def forward(self, x):
         x = self.conv11(x)
         x = self.deconv(x)
         size_x = list(x.size())
-        while size_x[2] < 128:
+        while size_x[2] < 16:
             x = self.deconv(x)
             size_x = list(x.size())
         x = nn.ReLU(inplace = True)(x)
         return x
 
 class FphbNet(nn.Module):
-    def __init__(self, in_channels = 3, out_channels = 512):
+    def __init__(self, in_channels = 3, out_channels = 32):
         super().__init__()
-        self.bottom_up_layer_1 = Layer2Conv(3, 64)
-        self.bottom_up_layer_2 = Layer2Conv(64, 128)
-        self.bottom_up_layer_3 = Layer3Conv(128, 128)
+        self.bottom_up_layer_1 = Layer2Conv(3, 8)
+        self.bottom_up_layer_2 = Layer2Conv(8, 16)
+        self.bottom_up_layer_3 = Layer3Conv(16, 16)
         self.final_layer =  nn.Sequential(
-            nn.Conv2d(128, 3, kernel_size = (1, 1), stride = 1, padding = 1),
+            nn.Conv2d(16, 3, kernel_size = (1, 1), stride = 1, padding = 1),
             nn.MaxPool2d(kernel_size = (2,2)),
             nn.InstanceNorm2d(num_features = out_channels),
             nn.ReLU(inplace = True)
         )
         self.size_network = SideNetwork()
-        self.concat_layer256 = ConcatLayer256()
-        self.concat_layer192 = ConcatLayer192()
+        self.concat_layer32 = ConcatLayer32()
+        self.concat_layer24 = ConcatLayer24()
         self.concat_layer23 = ConcatLayer23()
 
 
@@ -154,8 +154,8 @@ class FphbNet(nn.Module):
         feature_map_layer_3 = self.bottom_up_layer_3(feature_map_layer_2)
 
         feature_pyramid_3 = self.concat_layer23(feature_map_layer_2, feature_map_layer_3)
-        feature_pyramid_2 = self.concat_layer256(feature_map_layer_2, feature_pyramid_3)
-        feature_pyramid_1 = self.concat_layer192(feature_map_layer_1, feature_pyramid_2)
+        feature_pyramid_2 = self.concat_layer32(feature_map_layer_2, feature_pyramid_3)
+        feature_pyramid_1 = self.concat_layer24(feature_map_layer_1, feature_pyramid_2)
 
         side_network_3 = self.size_network(feature_map_layer_3)
         side_network_2 = self.size_network(feature_pyramid_2)
