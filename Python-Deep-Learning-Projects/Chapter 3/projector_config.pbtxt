@@ -1,0 +1,4 @@
+embeddings {
+  tensor_name: "embedding:0"
+  metadata_path: "D:\\Projects\\DeepLearning\\Python-Deep-Learning-Projects\\Chapter 3\\sample.tsv"
+}
