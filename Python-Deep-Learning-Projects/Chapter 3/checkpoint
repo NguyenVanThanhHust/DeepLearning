@@ -1,2 +1,0 @@
-model_checkpoint_path: "sample.tsv.ckpt"
-all_model_checkpoint_paths: "sample.tsv.ckpt"
