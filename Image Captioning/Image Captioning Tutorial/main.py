@@ -14,9 +14,9 @@ from keras.callbacks import ModelCheckpoint, TensorBoard
 from keras.preprocessing.text import Tokenizer
 from keras.preprocessing.sequence import pad_sequences
 
-from utils import load_image, process_images_train, process_images_val, load_records, _load_records
+from utils import load_image, process_images_train, process_images_val
 from cache import cache
-from data import TokenizerWrap
+from data import TokenizerWrap, load_records, mark_captions
 
 image_model = VGG16(include_top = True, weights='./model_weight/vgg16_weights_tf_dim_ordering_tf_kernels.h5')
 image_model.summary()
@@ -52,26 +52,8 @@ transfer_values_val = process_images_val(cache_path='./model_weight',
                                         val_data_dir=val_data_dir)
 print("dtype:", transfer_values_val.dtype)
 print("shape:", transfer_values_val.shape)
-
-mark_start = 'start_token'
-mark_end = 'end_token'
-
-def mark_captions(captions_listlist):
-    captions_marked = [[mark_start + caption + mark_end
-                        for caption in captions_list]
-                        for captions_list in captions_listlist]
-    
-    return captions_marked
-    
+   
 captions_train_marked = mark_captions(captions_train)
-
-def flatten(captions_listlist):
-    captions_list = [caption
-                     for captions_list in captions_listlist
-                     for caption in captions_list]
-    
-    return captions_list
-    
 captions_train_flat = flatten(captions_train_marked)
 
 num_words = 10000
@@ -80,6 +62,7 @@ tokenizer = TokenizerWrap(texts=captions_train_flat,
                           num_words=num_words)
 # convert all the caption from training set to sequences of integer tokens
 tokens_train = tokenizer.captions_to_tokens(captions_train_marked)
+
 def get_random_caption_tokens(idx):
     """
     Given a list of indices for images in the training-set,
@@ -158,8 +141,168 @@ num_captions_train = [len(captions) for captions in captions_train]
 total_num_captions_train = np.sum(num_captions_train)
 steps_per_epoch = int(total_num_captions_train / batch_size)
 
+# Create the recurrent network
+# state size of 3 GRU layers
 state_size = 512
+
+# embedding layers convert interger tokens intor vectors if this length
 embedding_size = 128
-        
+
+#inputs transfer values to the decoder
 transfer_values_input = Input(shape=(transfer_values_size,),
                               name='transfer_values_input')
+                              
+decoder_transfer_map = Dense(state_size, activation='tanh', 
+                            name = 'decoder_transfer_map')
+                            
+decoder_input = Input(shape=(None, ), name='decoder_input')
+decoder_embedding = Embedding(input_dim=num_words,
+                              output_dim=embedding_size,
+                              name='decoder_embedding')
+
+decoder_gru1 = GRU(state_size, name='decoder_gru1',
+                   return_sequences=True)
+decoder_gru2 = GRU(state_size, name='decoder_gru2',
+                   return_sequences=True)
+decoder_gru3 = GRU(state_size, name='decoder_gru3',
+                   return_sequences=True)
+                   
+decoder_dense = Dense(num_words,
+                      activation='softmax',
+                      name='decoder_output')
+                      
+      
+def connect_decoder(transfer_values):
+    # Map the transfer values to with dimensionality of internal state of GRU layers
+    initial_state = decoder_transfer_map(transfer_values)
+    
+    net = decoder_input
+    
+    # Connect the embedding-layer.
+    net = decoder_embedding(net)
+    
+    # Connect all the GRU layers.
+    net = decoder_gru1(net, initial_state=initial_state)
+    net = decoder_gru2(net, initial_state=initial_state)
+    net = decoder_gru3(net, initial_state=initial_state)
+
+    # Connect the final dense layer that converts to
+    # one-hot encoded arrays.
+    decoder_output = decoder_dense(net)
+    
+    return decoder_output
+    
+decoder_output = connect_decoder(transfer_values=transfer_values_input)
+
+decoder_model = Model(inputs=[transfer_values_input, decoder_input],
+                      outputs=[decoder_output])
+                      
+decoder_model.compile(optimizer=RMSprop(lr=1e-3),
+                      loss='sparse_categorical_crossentropy')
+                      
+path_checkpoint = '22_checkpoint.keras'
+callback_checkpoint = ModelCheckpoint(filepath=path_checkpoint,
+                                      verbose=1,
+                                      save_weights_only=True)
+                                      
+callback_tensorboard = TensorBoard(log_dir='./22_logs/',
+                                   histogram_freq=0,
+                                   write_graph=False)
+
+callbacks = [callback_checkpoint, callback_tensorboard]
+
+decoder_model.fit(x=generator,
+                  steps_per_epoch=steps_per_epoch,
+                  epochs=20,
+                  callbacks=callbacks)
+
+def generate_caption(image_path, max_tokens=30):
+    """
+    Generate a caption for the image in the given path.
+    The caption is limited to the given number of tokens (words).
+    """
+
+    # Load and resize the image.
+    image = load_image(image_path, size=img_size)
+    
+    # Expand the 3-dim numpy array to 4-dim
+    # because the image-model expects a whole batch as input,
+    # so we give it a batch with just one image.
+    image_batch = np.expand_dims(image, axis=0)
+
+    # Process the image with the pre-trained image-model
+    # to get the transfer-values.
+    transfer_values = image_model_transfer.predict(image_batch)
+
+    # Pre-allocate the 2-dim array used as input to the decoder.
+    # This holds just a single sequence of integer-tokens,
+    # but the decoder-model expects a batch of sequences.
+    shape = (1, max_tokens)
+    decoder_input_data = np.zeros(shape=shape, dtype=np.int)
+
+    # The first input-token is the special start-token for 'ssss '.
+    token_int = token_start
+
+    # Initialize an empty output-text.
+    output_text = ''
+
+    # Initialize the number of tokens we have processed.
+    count_tokens = 0
+
+    # While we haven't sampled the special end-token for ' eeee'
+    # and we haven't processed the max number of tokens.
+    while token_int != token_end and count_tokens < max_tokens:
+        # Update the input-sequence to the decoder
+        # with the last token that was sampled.
+        # In the first iteration this will set the
+        # first element to the start-token.
+        decoder_input_data[0, count_tokens] = token_int
+
+        # Wrap the input-data in a dict for clarity and safety,
+        # so we are sure we input the data in the right order.
+        x_data = \
+        {
+            'transfer_values_input': transfer_values,
+            'decoder_input': decoder_input_data
+        }
+
+        # Note that we input the entire sequence of tokens
+        # to the decoder. This wastes a lot of computation
+        # because we are only interested in the last input
+        # and output. We could modify the code to return
+        # the GRU-states when calling predict() and then
+        # feeding these GRU-states as well the next time
+        # we call predict(), but it would make the code
+        # much more complicated.
+        
+        # Input this data to the decoder and get the predicted output.
+        decoder_output = decoder_model.predict(x_data)
+
+        # Get the last predicted token as a one-hot encoded array.
+        # Note that this is not limited by softmax, but we just
+        # need the index of the largest element so it doesn't matter.
+        token_onehot = decoder_output[0, count_tokens, :]
+
+        # Convert to an integer-token.
+        token_int = np.argmax(token_onehot)
+
+        # Lookup the word corresponding to this integer-token.
+        sampled_word = tokenizer.token_to_word(token_int)
+
+        # Append the word to the output-text.
+        output_text += " " + sampled_word
+
+        # Increment the token-counter.
+        count_tokens += 1
+
+    # This is the sequence of tokens output by the decoder.
+    output_tokens = decoder_input_data[0]
+
+    # Plot the image.
+    plt.imshow(image)
+    plt.show()
+    
+    # Print the predicted caption.
+    print("Predicted caption:")
+    print(output_text)
+                                   
