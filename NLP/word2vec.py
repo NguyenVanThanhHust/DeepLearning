@@ -34,7 +34,7 @@ def generate_training_data(tokens, word_to_id, window_size):
  
 docs = "After the construction of Moon base, we, human kind, " \
             " have more chance to explore universe"
-tokens = tokenize(doc)
+tokens = tokenize(docs)
 word_to_idx, idx_to_word = mapping(tokens)
 X, Y = generate_training_data(tokens, word_to_id, 3)
 vocab_size = len(id_to_word)
