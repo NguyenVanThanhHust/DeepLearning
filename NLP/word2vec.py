@@ -2,7 +2,7 @@ import re
 
 def tokenize(text):
     # obtains tokens with at least 1 alphabet
-    pattern = re.complier(r'[A-Za-z]+[\w^\']*|[\w^\']*[A-Za-z]+[\w^\']*')
+    pattern = re.compile(r'[A-Za-z]+[\w^\']*|[\w^\']*[A-Za-z]+[\w^\']*')
     return pattern.findall(text.lower())
     
 def mapping(tokens):
