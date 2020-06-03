@@ -1,16 +1,17 @@
-from keras.layers import Dense, Dropout,  Conv2D, Input, Lambda, Flatten, TimeDistributed
-from keras.layers import Add, Reshape, MaxPooling2D, Concatenate, Embedding, RepeatVector
-from keras.models import Model
-from keras import backend as K
+
+import tensorflow as tf
+from tensorflow.keras.layers import Dense, Dropout,  Conv2D, Input, Lambda, Flatten, TimeDistributed
+from tensorflow.keras.layers import Add, Reshape, MaxPooling2D, Concatenate, Embedding, RepeatVector, BatchNormalization
+from tensorflow.keras.models import Model
+from tensorflow.keras import backend as K
 
 import numpy as np
-from keras.datasets import mnist
-from keras.models import Sequential
-from keras.layers.core import Dense, Dropout, Activation
+from tensorflow.keras.datasets import mnist
+from tensorflow.keras.models import Sequential
+#from tensorflow.keras.layers.core import Dense, Dropout, Activation
 from keras.utils import np_utils
 from keras.engine.topology import Layer
-import tensorflow as tf
-from keras.callbacks import TensorBoard
+from tensorflow.keras.callbacks import TensorBoard
 
 def MultiHeadAttention(l=8*8, d=512, dv=64, dim_out=512, nv=8):
     """
@@ -32,12 +33,9 @@ def MultiHeadAttention(l=8*8, d=512, dv=64, dim_out=512, nv=8):
     query = Reshape([l, nv, dv])(query_vector_2)
     key = Reshape([l, nv, dv])(key_vector_2)
 
-    attention = Lambda(lambda x: K.batch_dot(x[0], x[1], axes=[-1, -1])/ np.sqrt(dv), 
-                        output_shape=(l, nv, nv))([query, key])
+    attention = tf.einsum('baik,baij->bakj',query, key)/np.sqrt(dv)
     attention = Lambda(lambda x: K.softmax(x), output_shape=(l, nv, nv))(attention)
-    print("x shape: ", x.shape)
-    output = Lambda(lambda x:K.batch_dot(x[0], x[1], axes=[3,2]), 
-                    output_shape=(l, nv, dv))([attention, value])
+    output = tf.einsum('bajk,baik->baji',attention, value)
     output = Reshape([l, d])(output)
 
     output = Add()([output, query_vector_1])
@@ -68,6 +66,9 @@ class NormLayer(Layer):
         signma = K.std(x, keepdims=True, axis=-1)
         ln_out = (x-mu)/(signma+eps)
         return ln_out*self.a + self.b
+
+    def compute_output_shape(self, input_shape):
+        return input_shape
 
 if __name__ == '__main__':
     nb_classes = 10
@@ -100,7 +101,7 @@ if __name__ == '__main__':
     att = MultiHeadAttention(l=6*6, d=64*3 , dv=8*3, dim_out=32, nv = 8 )
     x = att([x,x,x])
     x = Reshape([6,6,32])(x)   
-    x = NormLayer()(x)
+    x = BatchNormalization()(x)
 
     x = Flatten()(x)
     x = Dense(256, activation='relu')(x)
