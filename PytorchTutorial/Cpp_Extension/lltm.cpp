@@ -91,8 +91,8 @@ std::vector<torch::Tensor> lltm_backward(
     return {d_old_h, d_input, d_weights, d_bias, d_old_cell};
 }
 
-PYBNIND11_MODULE(TORCH_EXTENSION_NAME, m)
-{
-    m.def("forward", &lltm_forward, "LLTM forward");
-    m.def("backward", &lltm_backward, "LLTM backward");
-}
+// PYBNIND11_MODULE(lltm_cpp, m)
+// {
+//     m.def("forward", &lltm_forward, "LLTM forward");
+//     m.def("backward", &lltm_backward, "LLTM backward");
+// }
