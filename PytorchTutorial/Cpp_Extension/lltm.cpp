@@ -63,7 +63,8 @@ std::vector<torch::Tensor> lltm_backward(
     torch::Tensor candidate_cell,
     torch::Tensor X,
     torch::Tensor gate_weights,
-    torch::Tensor weights) {
+    torch::Tensor weights) 
+{
     auto d_output_gate = torch::tanh(new_cell) * grad_h;
     auto d_tanh_new_cell = output_gate * grad_h;
     auto d_new_cell = d_tanh(new_cell) * d_tanh_new_cell + grad_cell;
@@ -91,8 +92,8 @@ std::vector<torch::Tensor> lltm_backward(
     return {d_old_h, d_input, d_weights, d_bias, d_old_cell};
 }
 
-// PYBNIND11_MODULE(lltm_cpp, m)
-// {
-//     m.def("forward", &lltm_forward, "LLTM forward");
-//     m.def("backward", &lltm_backward, "LLTM backward");
-// }
+PYBNIND11_MODULE("lltm_cpp", m)
+{
+    m.def("forward", &lltm_forward, "LLTM forward");
+    m.def("backward", &lltm_backward, "LLTM backward");
+}
