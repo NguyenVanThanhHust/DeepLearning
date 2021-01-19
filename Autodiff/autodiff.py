@@ -1,5 +1,37 @@
 import numpy as np
 
+# define some primitive operations
+def dot(x, w):
+    return np.dot(W, x)
+
+def exp(x):
+    return np.exp(x)
+
+def mul(x, y):
+    return x * y
+
+def add(x, y):
+    return x + y
+
+def sqrt(x):
+    return np.sqrt(x)
+
+def relu(x):
+    return np.max(x, 0)
+
+def squared_loss(y_pred, y):
+    # The code requires every output to be an array.
+    return np.array([0.5 * np.sum((y - y_pred) ** 2)])
+
+
+def squared_loss_make_vjp(y_pred, y):
+    diff = y_pred - y
+
+    def vjp(u):
+        return diff * u, -diff * u
+
+    return vjp
+        
 def num_jvp(f, x, v, eps=1e-6):
     """
     Calculate numerical jacobian vector product
@@ -27,7 +59,7 @@ def num_jacobiation(f, x, eps=1e-6):
 
     def e_2d(index):
         ret = np.zeros_like(x)
-        ret[i, j = 1
+        ret[i, j] = 1
         return ret
 
     assert len(x.shape)==1 or len(x.shape)==2, "only support 1d or 2d array"
@@ -38,14 +70,14 @@ def num_jacobiation(f, x, eps=1e-6):
                      for i in range(x.shape[0])] \
                      for j in range(x.shape[1])]).T
 
-def num_vjp(f, x u, eps=1e-6):
+def num_vjp(f, x, u, eps=1e-6):
     """
     calculate vector jacobian product
     
     """
     J = num_jacobian(f, x, eps=eps)
     
-    assert len(J.shape)==2 or len(J.shape)==3, "jacobian shape must be 2 or 3, get %d", len(J.shape)
+    assert len(J.shape)==2 or len(J.shape)==3, "jacobian shape must be 2 or 3, get " + len(J.shape)
     if len(J.shape)==2:
         return J.T.dot(u)
     else:
@@ -53,10 +85,14 @@ def num_vjp(f, x u, eps=1e-6):
         J = J.reshape(J.shape[0], -1)
         return u.dot(J).reshape(shape)
 
-# define some primitive operations
-def dot(x, w):
-    return np.dot(W, x)
+def call_func(x, func, param):
+    if param is None:
+        return (func(x))
+    else:
+        return (func(x, param))
 
+def evaluate_chain(x, functs, params, return_all=False):
+    
 
 class Node(object):
     def __init__(self, value=None, func=None, parents=None, name=""):
@@ -112,4 +148,26 @@ def evaluate_dag(sorted_nodes):
             node.value = node.func(*values)
     return sorted_nodes[-1].value
 
+# backward pass
+def backward_diff_dag(sorted_nodes):
+    value = evaluate_dag(sorted_nodes)
+    m = value.shape[0] # output size
+
+    # initialize recursion
+    sorted_nodes[-1].grad = np.eye(m)
+    for node_k in reversed(sorted_nodes):
+        if not node_k.parents:
+            # input with out parents
+            continue
     
+    # values of the parent nodes:
+    values = [p.value for p in node_k.parents]
+    # Iterate over outputs.
+    for i in range(m):
+        # A list of size len(values) containing the vjps.
+        vjps = node_k.func.make_vjp(*values)(node_k.grad[i])
+
+        for node_j, vjp in zip(node_k.parents, vjps):
+            node_j.grad += vjp
+
+    return sorted_nodes
