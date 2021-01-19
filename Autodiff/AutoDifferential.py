@@ -105,3 +105,11 @@ def topological_sort(end_node):
     return sorted_nodes
 
 # forward pass
+def evaluate_dag(sorted_nodes):
+    for node in sorted_nodes:
+        if node.value is None:
+            values = [p.value for p in node.parents]
+            node.value = node.func(*values)
+    return sorted_nodes[-1].value
+
+    
