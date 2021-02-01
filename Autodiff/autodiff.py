@@ -91,8 +91,32 @@ def call_func(x, func, param):
     else:
         return (func(x, param))
 
-def evaluate_chain(x, functs, params, return_all=False):
+def evaluate_chain(x, funcs, params, return_all=False):
+    if len(funcs) != len(params):
+        raise ValueError("len(funcs) and len(params) should be equal.")
+    xs = [x]
+
+    for k in range(len(funcs)):
+        xs.append(call_func(xs[k], funcs[k], params[k]))
+
+    if return_all:
+        return xs
+    else:
+        return xs[-1]
+
+def forward_diff_chain(x, funcs, params):
+    """
+    Forward differentiation
     
+    """
+    return 
+
+def backward_diff_chain():
+    return
+
+def create_dag():
+    return 
+
 
 class Node(object):
     def __init__(self, value=None, func=None, parents=None, name=""):

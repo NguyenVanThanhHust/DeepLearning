@@ -2,6 +2,7 @@ import numpy as np
 from autodiff import dot, relu, mul, add, exp, sqrt, squared_loss
 from autodiff import evaluate_chain, forward_diff_chain, backward_diff_chain
 from autodiff import Node, evaluate_dag, backward_diff_dag, topological_sort
+from autodiff import create_dag
 
 def test_dag():
     x7 = create_dag([0.5, 1.3])
